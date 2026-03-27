@@ -60,7 +60,7 @@
       <el-button type="success" @click="handleExport">
         <el-icon><Download /></el-icon> 导出
       </el-button>
-      <el-button type="danger" :disabled="!selectedDevices.length" @click="handleBatchDelete">
+      <el-button type="danger" :disabled="selectedDevices.length === 0" @click="handleBatchDelete">
         <el-icon><Delete /></el-icon> 批量删除
       </el-button>
     </div>
@@ -212,10 +212,291 @@
   </div>
 </template>
 
-<script>
-export default {
-  name: 'DeviceManagement'
+<script setup>
+import { ref } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  Search, Refresh, Plus, Download, Delete,
+  View, Edit, MoreFilled, CircleCheck, CircleClose
+} from '@element-plus/icons-vue'
+
+// 加载状态
+const loading = ref(false)
+
+// 查询参数
+const queryParams = ref({
+  pageNum: 1,
+  pageSize: 10,
+  deviceCode: '',
+  deviceName: '',
+  deviceType: '',
+  status: ''
+})
+
+// 分页相关
+const total = ref(0)
+
+// 选中的设备
+const selectedDevices = ref([])
+
+// 对话框相关
+const dialogVisible = ref(false)
+const dialogTitle = ref('新增设备')
+const detailVisible = ref(false)
+const currentDevice = ref(null)
+
+// 表单相关
+const deviceFormRef = ref(null)
+const queryForm = ref(null)
+const deviceForm = ref({
+  deviceCode: '',
+  deviceName: '',
+  deviceType: '',
+  ipAddress: '',
+  area: '',
+  remark: ''
+})
+
+const deviceRules = {
+  deviceCode: [{ required: true, message: '请输入设备编号', trigger: 'blur' }],
+  deviceName: [{ required: true, message: '请输入设备名称', trigger: 'blur' }],
+  deviceType: [{ required: true, message: '请选择设备类型', trigger: 'change' }]
 }
+
+// 设备列表
+const deviceList = ref([
+  {
+    deviceCode: 'AGV-001',
+    deviceName: 'AGV小车-01',
+    deviceType: 'agv',
+    ipAddress: '192.168.1.101',
+    status: 'online',
+    lastOnlineTime: '2026-03-26 21:50:00',
+    area: 'A区'
+  },
+  {
+    deviceCode: 'AGV-002',
+    deviceName: 'AGV小车-02',
+    deviceType: 'agv',
+    ipAddress: '192.168.1.102',
+    status: 'online',
+    lastOnlineTime: '2026-03-26 21:48:00',
+    area: 'A区'
+  },
+  {
+    deviceCode: 'STK-001',
+    deviceName: '堆垛机-01',
+    deviceType: 'stacker',
+    ipAddress: '192.168.1.201',
+    status: 'warning',
+    lastOnlineTime: '2026-03-26 21:30:00',
+    area: 'B区'
+  },
+  {
+    deviceCode: 'CON-001',
+    deviceName: '输送线-01',
+    deviceType: 'conveyor',
+    ipAddress: '192.168.1.301',
+    status: 'offline',
+    lastOnlineTime: '2026-03-26 18:00:00',
+    area: 'C区'
+  },
+  {
+    deviceCode: 'ROB-001',
+    deviceName: '机械臂-01',
+    deviceType: 'robot',
+    ipAddress: '192.168.1.401',
+    status: 'maintenance',
+    lastOnlineTime: '2026-03-26 12:00:00',
+    area: 'D区'
+  }
+])
+
+// 获取设备类型样式
+const getDeviceTypeType = (type) => {
+  const map = {
+    agv: 'primary',
+    stacker: 'success',
+    conveyor: 'warning',
+    robot: 'danger'
+  }
+  return map[type] || 'info'
+}
+
+const getDeviceTypeText = (type) => {
+  const map = {
+    agv: 'AGV小车',
+    stacker: '堆垛机',
+    conveyor: '输送线',
+    robot: '机械臂'
+  }
+  return map[type] || type
+}
+
+// 获取状态样式
+const getStatusType = (status) => {
+  const map = {
+    online: 'success',
+    offline: 'info',
+    warning: 'warning',
+    maintenance: 'danger'
+  }
+  return map[status] || 'info'
+}
+
+const getStatusText = (status) => {
+  const map = {
+    online: '在线',
+    offline: '离线',
+    warning: '告警',
+    maintenance: '维护中'
+  }
+  return map[status] || status
+}
+
+// 获取列表
+const getList = () => {
+  loading.value = true
+  setTimeout(() => {
+    loading.value = false
+    total.value = deviceList.value.length
+  }, 500)
+}
+
+// 搜索
+const handleQuery = () => {
+  queryParams.value.pageNum = 1
+  getList()
+  ElMessage.success('搜索完成')
+}
+
+const resetQuery = () => {
+  queryParams.value = {
+    pageNum: 1,
+    pageSize: 10,
+    deviceCode: '',
+    deviceName: '',
+    deviceType: '',
+    status: ''
+  }
+  handleQuery()
+}
+
+// 表格选择
+const handleSelectionChange = (selection) => {
+  selectedDevices.value = selection || []
+}
+
+// 新增
+const handleAdd = () => {
+  dialogTitle.value = '新增设备'
+  deviceForm.value = {
+    deviceCode: '',
+    deviceName: '',
+    deviceType: '',
+    ipAddress: '',
+    area: '',
+    remark: ''
+  }
+  dialogVisible.value = true
+}
+
+// 编辑
+const handleEdit = (row) => {
+  dialogTitle.value = '编辑设备'
+  deviceForm.value = { ...row }
+  dialogVisible.value = true
+}
+
+// 查看详情
+const handleView = (row) => {
+  currentDevice.value = row
+  detailVisible.value = true
+}
+
+// 更多操作
+const handleCommand = (command, row) => {
+  switch (command) {
+    case 'enable':
+      row.status = 'online'
+      ElMessage.success(`设备 ${row.deviceCode} 已启用`)
+      break
+    case 'disable':
+      row.status = 'offline'
+      ElMessage.success(`设备 ${row.deviceCode} 已禁用`)
+      break
+    case 'delete':
+      handleDelete(row)
+      break
+  }
+}
+
+// 删除
+const handleDelete = (row) => {
+  ElMessageBox.confirm(
+    `确定要删除设备 "${row.deviceName}" 吗？`,
+    '警告',
+    { confirmButtonText: '确定', cancelButtonText: '取消', type: 'danger' }
+  ).then(() => {
+    const index = deviceList.value.findIndex(item => item.deviceCode === row.deviceCode)
+    if (index > -1) {
+      deviceList.value.splice(index, 1)
+    }
+    ElMessage.success('删除成功')
+  }).catch(() => {})
+}
+
+// 批量删除
+const handleBatchDelete = () => {
+  if (selectedDevices.value.length === 0) {
+    ElMessage.warning('请先选择设备')
+    return
+  }
+  ElMessageBox.confirm(
+    `确定要删除选中的 ${selectedDevices.value.length} 个设备吗？`,
+    '警告',
+    { confirmButtonText: '确定', cancelButtonText: '取消', type: 'danger' }
+  ).then(() => {
+    selectedDevices.value.forEach(item => {
+      const index = deviceList.value.findIndex(d => d.deviceCode === item.deviceCode)
+      if (index > -1) {
+        deviceList.value.splice(index, 1)
+      }
+    })
+    ElMessage.success('批量删除成功')
+  }).catch(() => {})
+}
+
+// 导出
+const handleExport = () => {
+  ElMessage.success('设备数据导出成功')
+}
+
+// 提交表单
+const submitForm = () => {
+  deviceFormRef.value?.validate((valid) => {
+    if (valid) {
+      if (dialogTitle.value === '新增设备') {
+        deviceList.value.unshift({
+          ...deviceForm.value,
+          status: 'offline',
+          lastOnlineTime: '-'
+        })
+        ElMessage.success('新增成功')
+      } else {
+        const index = deviceList.value.findIndex(item => item.deviceCode === deviceForm.value.deviceCode)
+        if (index > -1) {
+          deviceList.value[index] = { ...deviceList.value[index], ...deviceForm.value }
+        }
+        ElMessage.success('修改成功')
+      }
+      dialogVisible.value = false
+    }
+  })
+}
+
+// 初始化
+getList()
 </script>
 
 <style lang="scss" scoped>
