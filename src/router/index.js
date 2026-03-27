@@ -139,7 +139,7 @@ export const constantRoutes = [
         path: 'index',
         component: () => import('@/views/workorder/index'),
         name: 'Workorder',
-        meta: { title: '工单监控', icon: 'clipboard' }
+        meta: { title: '工单管理', icon: 'clipboard' }
       }
     ]
   },

@@ -77,10 +77,6 @@
             <!-- 工单详情 -->
             <div class="workorder-details">
               <div class="detail-item">
-                <span class="detail-label">层数：</span>
-                <span class="detail-value">{{ item.layers }}层</span>
-              </div>
-              <div class="detail-item">
                 <span class="detail-label">数量：</span>
                 <span class="detail-value">{{ item.quantity }}{{ item.unit }}</span>
               </div>
@@ -105,10 +101,15 @@
               <span>预计完成：{{ item.estimatedTime }}</span>
             </div>
 
-            <!-- 当前状态 -->
+            <!-- 当前状态和进度条 -->
             <div class="current-status">
-              <div class="status-indicator" :class="item.status"></div>
-              <span class="status-text">{{ item.currentStatus }}</span>
+              <div class="status-left">
+                <div class="status-indicator" :class="item.status"></div>
+                <span class="status-text">{{ item.currentStatus }}</span>
+              </div>
+              <div class="progress-wrapper" v-if="item.status === 'running'">
+                <el-progress :percentage="item.progress" :status="item.progress === 100 ? 'success' : ''" :stroke-width="6" :show-text="false" />
+              </div>
             </div>
 
             <!-- 操作按钮 -->
@@ -143,6 +144,11 @@
               </el-tag>
             </template>
           </el-table-column>
+          <el-table-column label="进度" prop="progress" width="150">
+            <template #default="{ row }">
+              <el-progress :percentage="row.progress" :status="row.progress === 100 ? 'success' : ''" :stroke-width="6" />
+            </template>
+          </el-table-column>
           <el-table-column label="起点" prop="startLocation" min-width="120" show-overflow-tooltip />
           <el-table-column label="终点" prop="endLocation" min-width="120" show-overflow-tooltip />
           <el-table-column label="预计完成" prop="estimatedTime" width="160" />
@@ -160,18 +166,19 @@
     <!-- 新建工单对话框 -->
     <el-dialog v-model="createDialogVisible" title="新建工单" width="600px">
       <el-form :model="createForm" ref="createFormRef" :rules="createRules" label-width="100px">
+        <el-form-item label="工单号" prop="workorderNo">
+          <el-input v-model="createForm.workorderNo" placeholder="请输入工单号" />
+        </el-form-item>
         <el-form-item label="物料名称" prop="materialName">
           <el-input v-model="createForm.materialName" placeholder="请输入物料名称" />
         </el-form-item>
         <el-form-item label="优先级" prop="priority">
           <el-select v-model="createForm.priority" placeholder="请选择优先级" style="width: 100%">
+            <el-option label="自动" value="auto" />
             <el-option label="紧急" value="high" />
             <el-option label="普通" value="medium" />
             <el-option label="低" value="low" />
           </el-select>
-        </el-form-item>
-        <el-form-item label="层数" prop="layers">
-          <el-input-number v-model="createForm.layers" :min="1" :max="100" />
         </el-form-item>
         <el-form-item label="数量" prop="quantity">
           <el-input-number v-model="createForm.quantity" :min="1" />
@@ -236,9 +243,9 @@ const loading = ref(false)
 const createDialogVisible = ref(false)
 const createFormRef = ref(null)
 const createForm = ref({
+  workorderNo: '',
   materialName: '',
-  priority: 'medium',
-  layers: 1,
+  priority: 'auto',
   quantity: 1,
   unit: '件',
   startLocation: '',
@@ -246,6 +253,7 @@ const createForm = ref({
   remark: ''
 })
 const createRules = {
+  workorderNo: [{ required: true, message: '请输入工单号', trigger: 'blur' }],
   materialName: [{ required: true, message: '请输入物料名称', trigger: 'blur' }],
   priority: [{ required: true, message: '请选择优先级', trigger: 'change' }],
   startLocation: [{ required: true, message: '请选择起点', trigger: 'change' }],
@@ -259,7 +267,7 @@ const workorderList = ref([
     materialName: '电子元器件-芯片',
     status: 'running',
     priority: 'high',
-    layers: 5,
+    progress: 65,
     quantity: 200,
     unit: '件',
     startLocation: '原料仓A',
@@ -271,8 +279,8 @@ const workorderList = ref([
     workorderNo: 'WO20260327002',
     materialName: 'PCB主板',
     status: 'pending',
-    priority: 'medium',
-    layers: 3,
+    priority: 'auto',
+    progress: 0,
     quantity: 50,
     unit: '块',
     startLocation: '原料仓B',
@@ -285,7 +293,7 @@ const workorderList = ref([
     materialName: '成品-智能控制器',
     status: 'completed',
     priority: 'medium',
-    layers: 8,
+    progress: 100,
     quantity: 100,
     unit: '箱',
     startLocation: '包装线',
@@ -298,7 +306,7 @@ const workorderList = ref([
     materialName: '电子元器件-电阻',
     status: 'error',
     priority: 'low',
-    layers: 2,
+    progress: 45,
     quantity: 500,
     unit: '个',
     startLocation: '原料仓A',
@@ -311,7 +319,7 @@ const workorderList = ref([
     materialName: '成品-传感器模块',
     status: 'running',
     priority: 'high',
-    layers: 6,
+    progress: 80,
     quantity: 80,
     unit: '托',
     startLocation: '生产线2',
@@ -323,8 +331,8 @@ const workorderList = ref([
     workorderNo: 'WO20260327006',
     materialName: 'PCB底板',
     status: 'pending',
-    priority: 'low',
-    layers: 4,
+    priority: 'auto',
+    progress: 0,
     quantity: 120,
     unit: '块',
     startLocation: '原料仓B',
@@ -358,6 +366,7 @@ const getStatusText = (status) => {
 // 获取优先级类型
 const getPriorityType = (priority) => {
   const map = {
+    auto: 'success',
     high: 'danger',
     medium: 'warning',
     low: 'info'
@@ -367,6 +376,7 @@ const getPriorityType = (priority) => {
 
 const getPriorityText = (priority) => {
   const map = {
+    auto: '自动',
     high: '紧急',
     medium: '普通',
     low: '低'
@@ -395,9 +405,9 @@ const handleRefresh = () => {
 // 新建工单
 const handleCreate = () => {
   createForm.value = {
+    workorderNo: '',
     materialName: '',
-    priority: 'medium',
-    layers: 1,
+    priority: 'auto',
     quantity: 1,
     unit: '件',
     startLocation: '',
@@ -412,11 +422,11 @@ const handleSubmitCreate = () => {
   createFormRef.value?.validate((valid) => {
     if (valid) {
       const newWorkorder = {
-        workorderNo: `WO${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}${String(new Date().getDate()).padStart(2, '0')}${String(workorderList.value.length + 1).padStart(3, '0')}`,
+        workorderNo: createForm.value.workorderNo,
         materialName: createForm.value.materialName,
         status: 'pending',
         priority: createForm.value.priority,
-        layers: createForm.value.layers,
+        progress: 0,
         quantity: createForm.value.quantity,
         unit: createForm.value.unit,
         startLocation: createForm.value.startLocation,
@@ -584,13 +594,22 @@ const handleCancel = (row) => {
     .current-status {
       display: flex;
       align-items: center;
-      gap: 8px;
+      justify-content: space-between;
+      gap: 12px;
       margin-bottom: 12px;
+
+      .status-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+      }
 
       .status-indicator {
         width: 8px;
         height: 8px;
         border-radius: 50%;
+        flex-shrink: 0;
 
         &.pending {
           background: #909399;
@@ -613,6 +632,12 @@ const handleCancel = (row) => {
       .status-text {
         font-size: 13px;
         color: #606266;
+        white-space: nowrap;
+      }
+
+      .progress-wrapper {
+        flex: 1;
+        min-width: 0;
       }
     }
 
