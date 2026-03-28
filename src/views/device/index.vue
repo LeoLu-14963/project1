@@ -49,7 +49,7 @@
                 </div>
               </div>
             </el-col>
-            <el-col :xs="12" style="margin-top: 12px;">
+            <el-col :xs="12">
               <div class="stat-item">
                 <div class="stat-icon" style="background: #E6A23C;">
                   <el-icon :size="20"><Warning /></el-icon>
@@ -60,7 +60,7 @@
                 </div>
               </div>
             </el-col>
-            <el-col :xs="12" style="margin-top: 12px;">
+            <el-col :xs="12">
               <div class="stat-item">
                 <div class="stat-icon" style="background: #909399;">
                   <el-icon :size="20"><CircleClose /></el-icon>
